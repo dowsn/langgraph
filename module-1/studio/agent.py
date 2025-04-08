@@ -3,6 +3,8 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import START, StateGraph, MessagesState
 from langgraph.prebuilt import tools_condition, ToolNode
 
+from langchain_core.messages import HumanMessage
+
 def add(a: int, b: int) -> int:
     """Addition a and b.
 
@@ -46,16 +48,27 @@ def assistant(state: MessagesState):
 
 # Build graph
 builder = StateGraph(MessagesState)
+
 builder.add_node("assistant", assistant)
 builder.add_node("tools", ToolNode(tools))
+
 builder.add_edge(START, "assistant")
+
 builder.add_conditional_edges(
     "assistant",
     # If the latest message (result) from assistant is a tool call -> tools_condition routes to tools
     # If the latest message (result) from assistant is a not a tool call -> tools_condition routes to END
     tools_condition,
 )
+
+# edge to call back from tools to create loop
 builder.add_edge("tools", "assistant")
 
 # Compile graph
 graph = builder.compile()
+
+messages = [HumanMessage(content="Add 3 and 4. Multiply the output by 2. Divide the output by 5")]
+messages = graph.invoke({"messages": messages})
+
+for m in messages['messages']:
+    m.pretty_print()
